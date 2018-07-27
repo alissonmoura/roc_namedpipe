@@ -10,7 +10,7 @@ Features:
  - All of this functions can be done synchronously and asynchronously
 
 Design
-[![ROC](https://github.com/alissonmoura/roc_namedpipe/doc/roc_design.png)]
+[![ROC](https://github.com/alissonmoura/roc_namedpipe/blob/master/doc/roc_design.png)]
 
 ### Client
 The client is able to connect to a namedpipe and send JSON strings to it using sync and async methods.
