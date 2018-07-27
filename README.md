@@ -9,8 +9,8 @@ Features:
  - Call a procedure in the server
  - All of this functions can be done synchronously and asynchronously
 
-Design
-[![ROC](https://github.com/alissonmoura/roc_namedpipe/blob/master/doc/roc_design.png)]
+#Design
+![ROC](https://github.com/alissonmoura/roc_namedpipe/blob/master/doc/roc_design.png)
 
 ### Client
 The client is able to connect to a namedpipe and send JSON strings to it using sync and async methods.
@@ -29,6 +29,11 @@ The Connection is the connection between the Server and the namedpipe. The way I
 The Handler is what knows what to do with the message coming from the Connection. So the connection has an AbstractHandler (Interface) that is responsible to handle the messages. The handle can be implemented in many ways but for now, I use Reflection to call the methods of the objects created in the server. I thought about using Reflection because since the method called is known only during runtime I had to find a way to call the method dynamically. It is a good tool for the job because it keeps the code simple, for instance: in order to register a new kind of object in the server, it is only necessary to change 1 line in the handle. However, C++ doesn’t support reflection in its standard library so I used a library called RTTR that works very well with reflection.
 
 The Registered Objects is, basically, the register functionality that already exists in the RTTR. It registers all the methods that the user wants to have reflection.
+
+
+# Testing
+In order to test it just run the server-test.exe and after that run the client-test.exe. The Server supports many clients so you can run as many clients as you want.
+
 
 # Building
 Set RTTR_DIR as a variable environment for the RTTR library. e.g for Windows:
