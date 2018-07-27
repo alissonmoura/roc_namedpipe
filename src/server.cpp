@@ -13,8 +13,6 @@ Server::Server(AbstractConnection * const connection) : m_connection(connection)
 void Server::run() const
 {
 	m_connection->connect();
-	while (1) {
-	}
 }
 
 
