@@ -9,7 +9,8 @@ Features:
  - Call a procedure in the server
  - All of this functions can be done synchronously and asynchronously
 
-#Design
+# Design
+
 ![ROC](https://github.com/alissonmoura/roc_namedpipe/blob/master/doc/roc_design.png)
 
 ### Client
@@ -37,6 +38,6 @@ In order to test it just run the server-test.exe and after that run the client-t
 
 # Building
 Set RTTR_DIR as a variable environment for the RTTR library. e.g for Windows:
-set RTTR_DIR=c:/somepath/rttr-1.0.0-win64-vs2013
+set RTTR_DIR=c:/somepath/rttr
 Open the project in Visual Studio and use CMake to compile.
 It needs to be compiled as 64 bits because the RTTR library in the project is compiled for it.
