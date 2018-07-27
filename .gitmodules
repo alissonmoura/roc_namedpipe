@@ -1,0 +1,11 @@
+[submodule "vendor/catch2"]
+	path = vendor/catch2
+	url = https://github.com/catchorg/Catch2
+
+[submodule "vendor/rttr"]
+	path = vendor/rttr
+	url = https://github.com/rttrorg/rttr
+
+[submodule "vendor/rapidjson"]
+	path = vendor/rttr
+	url = https://github.com/Tencent/rapidjson
