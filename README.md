@@ -29,7 +29,8 @@ The Connection is the connection between the Server and the namedpipe. The way I
 
 The Handler is what knows what to do with the message coming from the Connection. So the connection has an AbstractHandler (Interface) that is responsible to handle the messages. The Handler can be implemented in many ways but for now, I use Reflection to call the methods of the objects created in the server. I thought about using Reflection because since the method called is known only during runtime I had to find a way to call the method dynamically. It is a good tool for the job because it keeps the code simple, for instance: in order to put a new kind of object in the server, it is only necessary to change 1 line in the Handler and the object itself in a new file. However, C++ doesn’t support reflection in its standard library so I used a library called RTTR that works very well with reflection.
 
-The Registered Objects is, basically, the register functionality that already exists in the RTTR. It registers all the methods that the user wants to have reflection.
+The Registered Objects is where the developer will register all objects that it wants to have in the server side. It is very simple have it, just implement two class from Object and AbstractRepo and it is pretty much done.
+The only new place that it is necessary to change is one line of the reflectionhandler.cpp to add the new repo in the member m_repos that keeps all the repos.
 
 
 ## Testing

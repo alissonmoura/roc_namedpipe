@@ -4,9 +4,9 @@
 
 int main()
 {
-	ReflectionHandler handler;
-	NamedPipeConnection connection(&handler);
-	Server server(&connection);
-	server.run();
-	return 0;
+    ReflectionHandler handler;
+    NamedPipeConnection connection(handler);
+    Server server(connection);
+    server.run();
+    return 0;
 }
