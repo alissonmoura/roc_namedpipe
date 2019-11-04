@@ -21,12 +21,12 @@ class NamedPipeConnection : public AbstractConnection
      */
     NamedPipeConnection(AbstractHandler & handler);
 
-    void connect() override;
+    bool connect() override;
 
   private:
     AbstractHandler & m_handler;
 
-    void start_named_pipe_worker();
+    bool start_named_pipe_worker();
 
     void instance_thread(const HANDLE pipe) const;
 };

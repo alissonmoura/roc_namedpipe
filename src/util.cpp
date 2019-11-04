@@ -10,5 +10,5 @@ std::string util::get_namedpipe_path()
     {
         namedpipepath = DEFAULT_NAMEDPIPE_PATH;
     }
-    return std::string(namedpipepath);
+    return std::string(namedpipepath);//move semantics implicitly
 }

@@ -15,11 +15,10 @@ NamedPipeConnection::NamedPipeConnection(AbstractHandler & handler)
 {
 }
 
-void NamedPipeConnection::connect() { start_named_pipe_worker(); }
+bool NamedPipeConnection::connect() { return start_named_pipe_worker(); }
 
-void NamedPipeConnection::start_named_pipe_worker()
+bool NamedPipeConnection::start_named_pipe_worker()
 {
-
     std::string namedpipepath = util::get_namedpipe_path();
 
     while (true)
@@ -29,7 +28,7 @@ void NamedPipeConnection::start_named_pipe_worker()
             << namedpipepath << std::endl;
         HANDLE pipe = CreateNamedPipe(
             namedpipepath.c_str(),
-            PIPE_ACCESS_DUPLEX, // read/write
+            PIPE_ACCESS_DUPLEX,
             PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
             // message type pipe | message-read mode |  blocking mode
             PIPE_UNLIMITED_INSTANCES, // max. instances
@@ -42,8 +41,11 @@ void NamedPipeConnection::start_named_pipe_worker()
         {
             std::cerr << "ERROR: CreateNamedPipe failed, GLE " << GetLastError()
                       << std::endl;
+            break;
         }
 
+        //It will be blocked until a client gets connected.
+        //When it gets connected a thread is created.
         if (ConnectNamedPipe(pipe, nullptr))
         {
             std::cout << "INFO: Client connected, creating a processing thread."
@@ -60,6 +62,8 @@ void NamedPipeConnection::start_named_pipe_worker()
             CloseHandle(pipe);
         }
     }
+    //If it gets here something wrong happened to the server so it will get finished.
+    return false;
 }
 
 void NamedPipeConnection::instance_thread(const HANDLE pipe) const
@@ -86,7 +90,7 @@ void NamedPipeConnection::instance_thread(const HANDLE pipe) const
 static bool read_from_pipe(std::array<char, util::BUFSIZE> & request,
                            const HANDLE & pipe)
 {
-    unsigned long bytes_to_read = 0;
+    DWORD bytes_to_read = 0;
 
     if (!ReadFile(pipe, &request, util::BUFSIZE * sizeof(TCHAR), &bytes_to_read,
                   nullptr))

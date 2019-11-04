@@ -114,25 +114,30 @@ class ReflectionHandler : public AbstractHandler
     std::unordered_map<
         MessageType,
         std::function<std::string(const RequestMessage &, AbstractRepo &)>>
-        m_handlers{};
+        m_processors{};
     std::mutex m_mutex{};
 
     void init_repos();
-    void init_handlers();
+    void init_processors();
 
     /**
      * @brief Checks if the string repo is contained in @m_repos member.
+     * It may throw an exception if the repo is nout found.
      *
      * @param repo string of repo name
+     * @return the repo
      */
-    void check_repo(const std::string & repo);
+    AbstractRepo & get_repo(const std::string & repo);
 
     /**
-     * @brief Checks if the string handler is contained in @m_handlers member.
+     * @brief Checks if the string handler is contained in @m_handler member.
+     * It may throw an exception if the processor is nout found.
      *
-     * @param handler string of handler which is typed as MessageType
+     * @param processor string of processor which is typed as MessageType
+     * @return the processor
      */
-    void check_handler(const MessageType & handler);
+    const std::function<std::string(const RequestMessage &, AbstractRepo &)>&
+    get_processor(const MessageType & processor);
 };
 
 /**
