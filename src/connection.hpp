@@ -10,5 +10,5 @@ class AbstractConnection
 {
   public:
     virtual ~AbstractConnection() {}
-    virtual void connect() = 0;
+    virtual bool connect() = 0;
 };

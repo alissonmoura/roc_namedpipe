@@ -6,4 +6,4 @@ Server::Server(AbstractConnection & connection) : m_connection(connection)
 {
 }
 
-void Server::run() const { m_connection.connect(); }
+bool Server::run() const { return m_connection.connect(); }

@@ -22,8 +22,9 @@ class Server
     /**
      * @brief run the server
      *
+     * @return bool It tells if the server is running fine or not.
      */
-    void run() const;
+    bool run() const;
 
   private:
     AbstractConnection & m_connection;

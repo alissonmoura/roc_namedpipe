@@ -41,18 +41,18 @@ static void check_int_ok(const rapidjson::Document & doc,
 static void check_array_ok(const rapidjson::Document & doc,
                            const std::string & key);
 static void check_type_ok(const rapidjson::Document & doc);
-static std::string handle_procedure(const RequestMessage & msg);
-static std::string handle_create(const RequestMessage & msg,
+static std::string process_procedure(const RequestMessage & msg);
+static std::string process_create(const RequestMessage & msg,
                                  AbstractRepo & repo);
-static std::string handle_object(const RequestMessage & msg,
+static std::string process_object(const RequestMessage & msg,
                                  AbstractRepo & repo);
-static std::string handle_retrieve(const RequestMessage & msg,
+static std::string process_retrieve(const RequestMessage & msg,
                                    AbstractRepo & repo);
 
 ReflectionHandler::ReflectionHandler()
 {
     init_repos();
-    init_handlers();
+    init_processors();
 }
 
 void ReflectionHandler::init_repos()
@@ -61,11 +61,11 @@ void ReflectionHandler::init_repos()
     m_repos[BikeRepo::REPO_NAME] = std::make_unique<BikeRepo>();
 }
 
-void ReflectionHandler::init_handlers()
+void ReflectionHandler::init_processors()
 {
-    m_handlers[MessageType::CREATE] = handle_create;
-    m_handlers[MessageType::OBJECT] = handle_object;
-    m_handlers[MessageType::RETRIEVE] = handle_retrieve;
+    m_processors[MessageType::CREATE] = process_create;
+    m_processors[MessageType::OBJECT] = process_object;
+    m_processors[MessageType::RETRIEVE] = process_retrieve;
 }
 
 std::string ReflectionHandler::handle(const std::string & json)
@@ -77,14 +77,13 @@ std::string ReflectionHandler::handle(const std::string & json)
         const RequestMessage msg{json};
         if (msg.type == MessageType::PROCEDURE)
         {
-            response = handle_procedure(msg);
+            response = process_procedure(msg);
         }
         else
         {
-            check_repo(msg.object_type);
-            check_handler(msg.type);
-            AbstractRepo & repo = *m_repos[msg.object_type].get();
-            response = m_handlers[msg.type](msg, repo);
+            AbstractRepo & repo = get_repo(msg.object_type);
+            const auto & processor = get_processor(msg.type);
+            response = processor(msg, repo);
         }
     }
     catch (const std::exception & ex)
@@ -92,35 +91,38 @@ std::string ReflectionHandler::handle(const std::string & json)
         response = build_error_response(ex.what());
     }
 
-    return response;
+    return response;//move semantics implicitly
 }
 
-void ReflectionHandler::check_repo(const std::string & repo)
+AbstractRepo & ReflectionHandler::get_repo(const std::string & repo)
 {
     if (m_repos.find(repo) == m_repos.end())
     {
         throw std::runtime_error{"ERROR: Object Type " + repo + " not found."};
     }
+    return *m_repos[repo].get();
 }
 
-void ReflectionHandler::check_handler(const MessageType & handler)
+const std::function<std::string(const RequestMessage &, AbstractRepo &)>&
+    ReflectionHandler::get_processor(const MessageType & processor)
 {
-    if (m_handlers.find(handler) == m_handlers.end())
+    if (m_processors.find(processor) == m_processors.end())
     {
         throw std::runtime_error{"ERROR: Handler Type not found."};
     }
+    return m_processors[processor];
 }
 
-static std::string handle_procedure(const RequestMessage & msg)
+static std::string process_procedure(const RequestMessage & msg)
 {
     const auto ret = rttr::type::invoke(msg.func.c_str(), msg.get_args());
     if (ret.is_valid())
     {
-        return build_ok_response(ret, msg);
+        return build_ok_response(ret, msg);//move semantics implicitly
     }
     else
     {
-        return build_no_ok_args(msg.get_args(), msg.func);
+        return build_no_ok_args(msg.get_args(), msg.func);//move semantics implicitly
     }
 }
 
@@ -134,22 +136,23 @@ static std::string build_error_response(const std::string & error)
     writer.String(error.c_str());
     writer.EndObject();
 
-    return std::string{buffer.GetString()};
+    return std::string{buffer.GetString()};//move semantics implicitly
 }
 
-static std::string handle_create(const RequestMessage & msg,
+static std::string process_create(const RequestMessage & msg,
                                  AbstractRepo & repo)
 {
     const auto ret = rttr::variant{repo.create_object(msg.obj_id)};
-    return build_ok_response(ret, msg);
+    return build_ok_response(ret, msg);//move semantics implicitly
 }
 
-static std::string handle_object(const RequestMessage & msg,
+static std::string process_object(const RequestMessage & msg,
                                  AbstractRepo & repo)
 {
     const auto & obj = repo.get_object(msg.obj_id);
     if (&obj == nullptr)
     {
+        //move semantics implicitly
         return build_error_response("ERROR: Object " +
                                     std::to_string(msg.obj_id) + " not found!");
     }
@@ -160,11 +163,11 @@ static std::string handle_object(const RequestMessage & msg,
         const auto ret = meth.invoke_variadic(obj, msg.get_args());
         if (ret.is_valid())
         {
-            return build_ok_response(ret, msg);
+            return build_ok_response(ret, msg);//move semantics implicitly
         }
         else
         {
-            return build_no_ok_args(msg.get_args(), msg.func);
+            return build_no_ok_args(msg.get_args(), msg.func);//move semantics implicitly
         }
     }
 }
@@ -178,20 +181,20 @@ static std::string build_no_ok_args(std::vector<rttr::argument> & args,
         for (const auto & piece : args)
             ss << piece.get_value<std::string>() << ", ";
         return build_error_response("ERROR: function " + func + " with args (" +
-                                    ss.str() + ") was not found!");
+                                    ss.str() + ") was not found!");//move semantics implicitly
     }
     else
     {
         return build_error_response("ERROR: function " + func +
-                                    " was not found!");
+                                    " was not found!");//move semantics implicitly
     }
 }
 
-static std::string handle_retrieve(const RequestMessage & msg,
+static std::string process_retrieve(const RequestMessage & msg,
                                    AbstractRepo & repo)
 {
     auto & obj = repo.get_object(msg.obj_id);
-    return obj.to_json(msg.obj_id);
+    return obj.to_json(msg.obj_id);//move semantics implicitly
 }
 
 static std::string build_ok_response(const rttr::variant & var,
@@ -212,7 +215,7 @@ static std::string build_ok_response(const rttr::variant & var,
 
     write_return(writer, var);
 
-    return std::string{buffer.GetString()};
+    return std::string{buffer.GetString()};//move semantics implicitly
 }
 
 RequestMessage::RequestMessage(const std::string & json)
@@ -256,7 +259,7 @@ std::vector<rttr::argument> RequestMessage::get_args() const
 {
     std::vector<rttr::argument> ret;
     std::copy(args.begin(), args.end(), std::back_inserter(ret));
-    return ret;
+    return ret;//move semantics implicitly
 }
 
 void RequestMessage::process_array(const rapidjson::Value & array)

@@ -10,7 +10,7 @@
 class Client
 {
   public:
-    void connect();
+    bool connect();
     void close() const;
     std::future<std::string> async_call(const std::string & order_json);
     std::string sync_call(const std::string & order_json);

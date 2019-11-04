@@ -21,7 +21,11 @@ static void end_text();
 int main()
 {
     Client client{};
-    client.connect();
+    if (!client.connect())
+    {
+        end_text();
+        return -1;
+    }
 
     call_procedure(client);
 
@@ -73,7 +77,7 @@ static void call_procedure(Client & client)
     // sync_call
     const std::string ret_procedure = client.sync_call(json_procedure.str());
     std::cout << std::endl << std::endl;
-    std::cout << "returning name of the project using procedure" << std::endl;
+    std::cout << "Returning name of the project using procedure" << std::endl;
     std::cout << ret_procedure << std::endl;
     std::cout << std::endl << std::endl;
 }
@@ -88,13 +92,13 @@ static void create_car(Client & client, const int obj_id)
                 << "\"obj_id\": " << obj_id << ", "
                 << "\"client_id\": 1 }";
 
-    std::cout << "calling method create" << std::endl;
+    std::cout << "Calling method create" << std::endl;
 
     // sync_call
     const std::string ret_create = client.sync_call(json_create.str());
 
     std::cout << std::endl << std::endl;
-    std::cout << "return for create" << std::endl;
+    std::cout << "Return for create" << std::endl;
     std::cout << ret_create << std::endl;
     std::cout << std::endl << std::endl;
 }
@@ -110,13 +114,13 @@ static std::future<std::string> change_model_async(Client & client,
                       << "\"obj_id\":" << obj_id << ","
                       << "\"client_id\": 1 }";
 
-    std::cout << "calling method change_model asynchronously" << std::endl;
+    std::cout << "Calling method change_model asynchronously" << std::endl;
     std::cout << std::endl << std::endl;
 
     // async_call
     std::future<std::string> ret_change_model =
         client.async_call(json_change_model.str());
-    return ret_change_model;
+    return ret_change_model; // move semantics implicitly
 }
 static std::string get_model(Client & client, const int obj_id)
 {
@@ -131,9 +135,9 @@ static std::string get_model(Client & client, const int obj_id)
     // sync_call
     std::string ret_get_model = client.sync_call(json_get_model.str());
 
-    std::cout << "calling method get_model" << std::endl;
+    std::cout << "Calling method get_model" << std::endl;
     std::cout << std::endl << std::endl;
-    return ret_get_model;
+    return ret_get_model; // move semantics implicitly
 }
 
 static void async_explain()
@@ -149,7 +153,7 @@ Probably the std::async takes more time to be invoked than the next call get_mod
 
 static void check_if_model_has_changed(const std::string & ret_get_model)
 {
-    std::cout << "return for get_model" << std::endl;
+    std::cout << "Return for get_model" << std::endl;
     std::cout << ret_get_model << std::endl;
     std::cout << std::endl << std::endl;
 }
@@ -157,9 +161,8 @@ static void check_if_model_has_changed(const std::string & ret_get_model)
 static void force_model_change(std::future<std::string> & ret_change_model)
 {
     ret_change_model.get();
-    std::cout << "At this point the change_model was already processed so if \
-I call get_model again it should return Beetle."
-              << std::endl;
+    std::cout << "Force change_model to get complete."
+              << std::endl << std::endl;
 }
 
 static void retrieve_object(Client & client, const int obj_id)
@@ -191,7 +194,7 @@ static void retrieve_explain()
 static void end_text()
 {
     std::cout
-        << "<End of message, press ENTER to terminate connection and exit>"
+        << "<press ENTER to exit>"
         << std::endl;
     std::cin.get();
 }
