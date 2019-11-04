@@ -1,143 +1,142 @@
 #include "namedpipeconnection.hpp"
+#include "util.hpp"
 
-#include <cstdlib>
-#include <thread>
+#include <array>
 #include <iostream>
 #include <string>
+#include <thread>
 
+static bool read_from_pipe(std::array<char, util::BUFSIZE> & request,
+                           const HANDLE & pipe);
+static bool write_to_pipe(const std::string & ret, const HANDLE & pipe);
 
-#define BUFSIZE 4096
-
-NamedPipeConnection::NamedPipeConnection(AbstractHandler* const handler) : m_handler(handler)
+NamedPipeConnection::NamedPipeConnection(AbstractHandler & handler)
+    : m_handler{handler}
 {
 }
 
-void NamedPipeConnection::connect()
-{
-	start_named_pipe_worker();
-}
+void NamedPipeConnection::connect() { start_named_pipe_worker(); }
 
 void NamedPipeConnection::start_named_pipe_worker()
 {
-	BOOL   is_connected = FALSE;
-	HANDLE pipe = INVALID_HANDLE_VALUE, hThread = NULL;
-	
-	const char* namedpipepath = std::getenv("NAMED_PIPE_PATH");
-	if (!namedpipepath) {
-		namedpipepath = "\\\\.\\pipe\\mynamedpipe123";
-	}
 
-	for (;;)
-	{
-		std::cout << "Pipe Server: Main thread awaiting client connection on " << std::string(namedpipepath) << std::endl;
-		pipe = CreateNamedPipe(
-			namedpipepath,             // pipe name 
-			PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,       // read/write access 
-			PIPE_TYPE_MESSAGE |       // message type pipe 
-			PIPE_READMODE_MESSAGE |   // message-read mode 
-			PIPE_WAIT,                // blocking mode 
-			PIPE_UNLIMITED_INSTANCES, // max. instances  
-			BUFSIZE,                  // output buffer size 
-			BUFSIZE,                  // input buffer size 
-			0,                        // client time-out 
-			NULL);                    // default security attribute
+    std::string namedpipepath = util::get_namedpipe_path();
 
-		if (pipe == INVALID_HANDLE_VALUE)
-		{
-			std::cout << "CreateNamedPipe failed, GLE " << GetLastError() << std::endl;
-		}
+    while (true)
+    {
+        std::cout
+            << "INFO: Pipe Server: Main thread awaiting client connection on "
+            << namedpipepath << std::endl;
+        HANDLE pipe = CreateNamedPipe(
+            namedpipepath.c_str(),
+            PIPE_ACCESS_DUPLEX, // read/write
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+            // message type pipe | message-read mode |  blocking mode
+            PIPE_UNLIMITED_INSTANCES, // max. instances
+            util::BUFSIZE,            // output buffer size
+            util::BUFSIZE,            // input buffer size
+            0,                        // client time-out
+            nullptr);                 // default security attribute
 
-		is_connected = ConnectNamedPipe(pipe, NULL) ?
-			true : (GetLastError() == ERROR_PIPE_CONNECTED);
+        if (pipe == INVALID_HANDLE_VALUE)
+        {
+            std::cerr << "ERROR: CreateNamedPipe failed, GLE " << GetLastError()
+                      << std::endl;
+        }
 
-		if (is_connected)
-		{
-			std::cout << "Client connected, creating a processing thread." << std::endl;
-			std::thread thread(&NamedPipeConnection::instance_thread, this, pipe);
-			thread.detach();
-		}
-		else {
-			// The client could not connect, so close the pipe. 
-			CloseHandle(pipe);
-		}
-		//TODO check a way to close named pipe for clients that were killed with sigkill for instance
-	}
+        if (ConnectNamedPipe(pipe, nullptr))
+        {
+            std::cout << "INFO: Client connected, creating a processing thread."
+                      << std::endl;
+            std::thread thread{&NamedPipeConnection::instance_thread, this,
+                               pipe};
+            thread.detach();
+        }
+        else
+        {
+            std::cout
+                << "WARNING: The client could not connect, so close the pipe.."
+                << std::endl;
+            CloseHandle(pipe);
+        }
+    }
 }
 
-void NamedPipeConnection::instance_thread(HANDLE pipe) const
+void NamedPipeConnection::instance_thread(const HANDLE pipe) const
 {
-	HANDLE heap_handle = GetProcessHeap();
-	TCHAR* request = (TCHAR*)HeapAlloc(heap_handle, 0, BUFSIZE * sizeof(TCHAR));
-	TCHAR* reply = (TCHAR*)HeapAlloc(heap_handle, 0, BUFSIZE * sizeof(TCHAR));
+    while (true)
+    {
+        std::array<char, util::BUFSIZE> request{};
+        if (!read_from_pipe(request, pipe))
+            break;
 
-	DWORD bytes_to_read = 0, bytes_to_reply = 0, bytes_witten = 0;
-	BOOL success = FALSE;
+        std::string response = m_handler.handle(request.data());
 
-	if (pipe == NULL)
-	{
-		//TODO log error
-		if (reply != NULL) HeapFree(heap_handle, 0, reply);
-		if (request != NULL) HeapFree(heap_handle, 0, request);
-	}
+        if (!write_to_pipe(response, pipe))
+            break;
+    }
 
-	if (request == NULL)
-	{
-		//TODO log error
-		if (reply != NULL) HeapFree(heap_handle, 0, reply);
-	}
+    FlushFileBuffers(pipe);
+    DisconnectNamedPipe(pipe);
+    CloseHandle(pipe);
 
-	if (reply == NULL)
-	{
-		//TODO log error
-		if (request != NULL) HeapFree(heap_handle, 0, request);
-	}
+    std::cout << "INFO: InstanceThread exitting.\n" << std::endl;
+}
 
-	while (true)
-	{
-		success = ReadFile(
-			pipe,
-			request,
-			BUFSIZE * sizeof(TCHAR),
-			&bytes_to_read,
-			NULL);
+static bool read_from_pipe(std::array<char, util::BUFSIZE> & request,
+                           const HANDLE & pipe)
+{
+    unsigned long bytes_to_read = 0;
 
-			if (!success || bytes_to_read == 0)
-			{
-				if (GetLastError() == ERROR_BROKEN_PIPE)
-				{
-					//TODO log error "InstanceThread: client disconnected"
-				}
-				else
-				{
-					//TODO log error "InstanceThread ReadFile failed, GLE= GetLastError()
-				}
-				break;
-			}
+    if (!ReadFile(pipe, &request, util::BUFSIZE * sizeof(TCHAR), &bytes_to_read,
+                  nullptr))
+    {
+        if (GetLastError() == ERROR_BROKEN_PIPE)
+        {
+            std::cout << "WARNING: The error ERROR_BROKEN_PIPE happened while "
+                         "reading."
+                      << "Probably the user has disconnected." << std::endl;
+        }
+        else if (bytes_to_read == 0)
+        {
+            std::cout << "WARNING: 0 bytes was read from client!" << std::endl;
+        }
+        else
+        {
+            std::cerr << "ERROR: InstanceThread ReadFile failed, GLE= "
+                      << GetLastError() << std::endl;
+        }
+        return false;
+    }
+    return true;
+}
 
-		auto ret = m_handler->handle(request);
-		std::cout << "writing....." << std::endl;
-		std::cout << ret << std::endl;
+static bool write_to_pipe(const std::string & response, const HANDLE & pipe)
+{
+    DWORD bytes_witten = 0;
 
-		success = WriteFile(
-			pipe,
-			ret.c_str(),
-			(DWORD)ret.size() + 1,
-			&bytes_witten,
-			NULL);
-
-		if (!success || (DWORD)ret.size() + 1 != bytes_witten)
-		{
-			std::cout << "InstanceThread WriteFile failed, GLE= " << GetLastError() << std::endl;
-			break;
-		}
-	}
-
-	FlushFileBuffers(pipe);
-	DisconnectNamedPipe(pipe);
-	CloseHandle(pipe);
-
-	HeapFree(heap_handle, 0, request);
-	HeapFree(heap_handle, 0, reply);
-
-	std::cout << "InstanceThread exitting.\n" << std::endl;
+    if (!WriteFile(pipe, response.c_str(), (DWORD)response.size() + 1,
+                   &bytes_witten, nullptr))
+    {
+        if (GetLastError() == ERROR_BROKEN_PIPE)
+        {
+            std::cout << "WARNING: The error ERROR_BROKEN_PIPE happened while "
+                         "writing."
+                      << std::endl;
+        }
+        else
+        {
+            std::cerr << "ERROR: InstanceThread WriteFile failed, GLE= "
+                      << GetLastError() << std::endl;
+        }
+        return false;
+    }
+    else if ((DWORD)response.size() + 1 != bytes_witten)
+    {
+        std::cerr << "ERROR: The amount of data written in the pipe is not "
+                     "what is supposed to be."
+                  << std::endl;
+        return false;
+    }
+    return true;
 }

@@ -7,55 +7,50 @@
 
 #include <iostream>
 
-std::string Bike::get_color() const
+const std::string BikeRepo::REPO_NAME = "Bike";
+
+std::string Bike::get_color() const { return m_color; }
+
+std::string Bike::to_json(const int id) const
 {
-    return m_color;
+    rapidjson::StringBuffer buffer{};
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    writer.StartObject();
+    writer.Key("object_id");
+    writer.Int(id);
+    writer.Key("color");
+    writer.String(m_color.c_str());
+    writer.EndObject();
+    return std::string(buffer.GetString());
 }
 
-std::string Bike::to_json(const int id)
-{
-	rapidjson::StringBuffer buffer;
-	rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
-	writer.StartObject();
-	writer.Key("object_id");
-	writer.Int(id);
-	writer.Key("color");
-	writer.String(m_color.c_str());
-	writer.EndObject();
-	return std::string(buffer.GetString());
-}
-
-void Bike::change_color(std::string& color)
-{
-    m_color = color;
-}
+void Bike::change_color(std::string & color) { m_color = color; }
 
 RTTR_REGISTRATION
 {
-    rttr::registration::class_<Bike>("Bike")
-         .constructor()
-         .property("data", &Bike::m_color)
-         .method("get_color", &Bike::get_color)
-         .method("change_color", &Bike::change_color);
+    rttr::registration::class_<Bike>{BikeRepo::REPO_NAME.c_str()}
+        .constructor()
+        .property("data", &Bike::m_color)
+        .method("get_color", &Bike::get_color)
+        .method("change_color", &Bike::change_color);
 }
 
 bool BikeRepo::create_object(const int obj_id)
 {
-    if(contains_key(obj_id)) {
+    if (contains_object(obj_id))
+    {
         return false;
-    } else {
+    }
+    else
+    {
         m_bikes[obj_id] = std::make_unique<Bike>();
         return true;
     }
 }
 
-Object& BikeRepo::get_object(const int obj_id)
-{
-    return *m_bikes[obj_id];
-}
+Object & BikeRepo::get_object(const int obj_id) { return *m_bikes[obj_id]; }
 
-bool BikeRepo::contains_key(const int key)
+bool BikeRepo::contains_object(const int key)
 {
-	return m_bikes.find(key) != m_bikes.end();
+    return m_bikes.find(key) != m_bikes.end();
 }
-

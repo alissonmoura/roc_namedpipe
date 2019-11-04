@@ -7,56 +7,51 @@
 
 using namespace rttr;
 
-void Car::change_model(std::string& model)
-{
-    m_model = model;
-}
 
+const std::string CarRepo::REPO_NAME = "Car";
 
-std::string Car::get_model() const
-{
-	return m_model;
-}
+void Car::change_model(std::string & model) { m_model = model; }
 
-std::string Car::to_json(const int id)
+std::string Car::get_model() const { return m_model; }
+
+std::string Car::to_json(const int id) const
 {
-	rapidjson::StringBuffer buffer;
-	rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
-	writer.StartObject();
-	writer.Key("object_id");
-	writer.Int(id);
-	writer.Key("model");
-	writer.String(m_model.c_str());
-	writer.EndObject();
-	return std::string(buffer.GetString());
+    rapidjson::StringBuffer buffer{};
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    writer.StartObject();
+    writer.Key("object_id");
+    writer.Int(id);
+    writer.Key("model");
+    writer.String(m_model.c_str());
+    writer.EndObject();
+    return std::string(buffer.GetString());
 }
 
 RTTR_REGISTRATION
 {
-    registration::class_<Car>("Car")
-         .constructor()
-         .property("model", &Car::m_model)
-         .method("change_model", &Car::change_model)
-         .method("get_model", &Car::get_model);
+    registration::class_<Car>{CarRepo::REPO_NAME.c_str()}
+        .constructor()
+        .property("model", &Car::m_model)
+        .method("change_model", &Car::change_model)
+        .method("get_model", &Car::get_model);
 }
 
 bool CarRepo::create_object(const int obj_id)
 {
-    if(contains_key(obj_id)) {
+    if (contains_object(obj_id))
+    {
         return false;
-    } else {
+    }
+    else
+    {
         m_cars[obj_id] = std::make_unique<Car>();
         return true;
     }
 }
 
-Object& CarRepo::get_object(const int obj_id)
-{
-    return *m_cars[obj_id];
-}
+Object & CarRepo::get_object(const int obj_id) { return *m_cars[obj_id]; }
 
-bool CarRepo::contains_key(const int key)
+bool CarRepo::contains_object(const int key)
 {
-	return m_cars.find(key) != m_cars.end();
+    return m_cars.find(key) != m_cars.end();
 }
-
